@@ -98,6 +98,20 @@ const ExerciseContainer = styled(motion.div)`
   background: white;
 `;
 
+// 添加类型定义
+interface FillBlanksResult {
+  exercise_id: string;
+  results: Array<{
+    position: number;
+    submitted_word: string;
+    is_correct: boolean;
+    placeholder: string;
+  }>;
+  score: number;
+  correct_count: number;
+  total_blanks: number;
+}
+
 const App = () => {
   const [showExercise, setShowExercise] = useState(false);
   const [state, setState] = useState<ExerciseState>({
@@ -287,7 +301,7 @@ const App = () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      const response = await ApiService.checkFillBlanksAnswers(
+      const apiResponse = await ApiService.checkFillBlanksAnswers(
         state.currentExercise.fill_blanks_exercise_id,
         {
           user_answers: state.answers.map((answer, index) => ({
@@ -297,23 +311,40 @@ const App = () => {
         }
       );
       
-      setState(prev => ({ ...prev, loading: false }));
+      console.log('完整的API响应:', apiResponse);
+      console.log('API响应类型:', typeof apiResponse);
+      console.log('API响应的data字段:', apiResponse?.data);
       
-      if (response.data && response.data.score === 1) {
-        // 答案正确
+      // 如果apiResponse本身就是数据，直接使用
+      const response = (typeof apiResponse.data !== 'undefined') ? apiResponse.data : apiResponse;
+      console.log('最终使用的响应数据:', response);
+      
+      setState(prev => ({ ...prev, loading: false }));
+
+      if (response && response.correct_count === response.total_blanks) {
+        // 答案全部正确
         setState(prev => ({ ...prev, showSuccess: true }));
         setTimeout(() => {
           setState(prev => ({ ...prev, showSuccess: false }));
           goToNextSegment();
         }, 1500);
+      } else if (response) {
+        // 显示具体的错误信息
+        const incorrectAnswers = response.results.filter(result => !result.is_correct);
+        if (incorrectAnswers.length > 0) {
+          setState(prev => ({
+            ...prev,
+            error: `答案不正确，请重试`
+          }));
+        }
       } else {
-        // 答案错误
         setState(prev => ({
           ...prev,
-          error: '答案不正确，请重试'
+          error: '服务器响应格式错误'
         }));
       }
     } catch (error) {
+      console.error('API调用错误:', error);
       setState(prev => ({
         ...prev,
         loading: false,
