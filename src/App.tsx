@@ -249,24 +249,42 @@ const App = () => {
   }, [state.audioId, state.currentSegment, state.difficulty, showExercise, settings.autoPlayAudio]);
   
   const handleKeyPress = async (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-    if (!state.currentExercise) return
+    if (!state.currentExercise) return;
     
     if (e.key === 'Enter') {
-      if (e.shiftKey && index > 0) {
+      e.preventDefault(); // 防止表单提交
+      
+      if (e.shiftKey) {
         // Shift + Enter: 移动到上一个空
-        inputRefs.current[index - 1]?.focus()
-      } else if (index < state.currentExercise.blanks.length - 1) {
-        // Enter: 移动到下一个空
-        inputRefs.current[index + 1]?.focus()
+        if (index > 0) {
+          inputRefs.current[index - 1]?.focus();
+        }
       } else {
-        // 最后一个空的 Enter: 检查答案
-        await checkAnswer()
+        // Enter: 如果是最后一个空，则检查答案；否则移动到下一个空
+        if (index === state.answers.length - 1) {
+          // 在最后一个空按回车，检查答案
+          await checkAnswer();
+        } else {
+          // 不是最后一个空，移动到下一个空
+          inputRefs.current[index + 1]?.focus();
+        }
       }
     }
-  }
+  };
 
   const checkAnswer = async () => {
-    if (!state.currentExercise) return
+    if (!state.currentExercise) return;
+    
+    // 检查是否所有空都已填写
+    if (state.answers.some(answer => !answer.trim())) {
+      setState(prev => ({
+        ...prev,
+        error: '请填写所有的空'
+      }));
+      return;
+    }
+    
+    setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
       const response = await ApiService.checkFillBlanksAnswers(
@@ -274,25 +292,35 @@ const App = () => {
         {
           user_answers: state.answers.map((answer, index) => ({
             position: state.currentExercise!.blanks[index].position,
-            submitted_word: answer
+            submitted_word: answer.trim()
           }))
         }
-      )
+      );
+      
+      setState(prev => ({ ...prev, loading: false }));
       
       if (response.data && response.data.score === 1) {
-        setState(prev => ({ ...prev, showSuccess: true }))
+        // 答案正确
+        setState(prev => ({ ...prev, showSuccess: true }));
         setTimeout(() => {
-          setState(prev => ({ ...prev, showSuccess: false }))
-          goToNextSegment()
-        }, 1500)
+          setState(prev => ({ ...prev, showSuccess: false }));
+          goToNextSegment();
+        }, 1500);
+      } else {
+        // 答案错误
+        setState(prev => ({
+          ...prev,
+          error: '答案不正确，请重试'
+        }));
       }
     } catch (error) {
       setState(prev => ({
         ...prev,
-        error: '检查答案失败'
-      }))
+        loading: false,
+        error: '检查答案失败，请重试'
+      }));
     }
-  }
+  };
 
   const goToNextSegment = () => {
     setState(prev => ({
