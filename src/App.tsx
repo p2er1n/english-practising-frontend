@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import styled from '@emotion/styled'
 import { motion, AnimatePresence } from 'framer-motion'
 import Settings from './components/Settings'
+import WelcomePage from './components/WelcomePage'
 import { loadSettings, saveSettings, type Settings as SettingsType } from './config/settings'
 import type { ExerciseState } from './types/exercise'
 import { ApiService } from './services/api.service'
@@ -87,7 +88,18 @@ const ErrorMessage = styled.div`
   text-align: center;
 `
 
+const ExerciseContainer = styled(motion.div)`
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: white;
+`;
+
 const App = () => {
+  const [showExercise, setShowExercise] = useState(false);
   const [state, setState] = useState<ExerciseState>({
     audioId: '',
     currentSegment: 1,
@@ -97,79 +109,77 @@ const App = () => {
     showSuccess: false,
     audioList: [],
     currentExercise: null,
-    loading: true,
+    loading: false,
     error: null
   })
   
   const [settings, setSettings] = useState<SettingsType>(() => loadSettings())
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   
-  // 加载音频列表
-  useEffect(() => {
-    const fetchAudioList = async () => {
-      try {
-        const response = await ApiService.getAudioList();
-        
-        if (!response || !response.data) {
-          setState(prev => ({
-            ...prev,
-            audioList: [],
-            loading: false,
-            error: 'API响应格式错误'
-          }));
-          return;
-        }
-
-        const audioList = response.data;
-        
-        if (audioList.length === 0) {
-          setState(prev => ({
-            ...prev,
-            audioList: [],
-            loading: false,
-            error: '没有可用的音频'
-          }));
-          return;
-        }
-
-        // 自动选择第一个音频开始练习
+  // 点击开始练习后加载音频列表
+  const handleStart = async () => {
+    setState(prev => ({ ...prev, loading: true, error: null }));
+    try {
+      const response = await ApiService.getAudioList();
+      
+      if (!response || !response.data) {
         setState(prev => ({
           ...prev,
-          audioList: audioList,
+          audioList: [],
           loading: false,
-          audioId: audioList[0].id,
-          currentSegment: 1,
-          answers: [],
-          error: null
+          error: 'API响应格式错误'
         }));
-      } catch (error) {
-        setState(prev => ({
-          ...prev,
-          error: error instanceof Error ? error.message : '加载音频列表失败',
-          loading: false,
-          audioList: []
-        }));
+        return;
       }
-    };
-    
-    fetchAudioList();
-  }, []);
-  
+
+      const audioList = response.data;
+      
+      if (audioList.length === 0) {
+        setState(prev => ({
+          ...prev,
+          audioList: [],
+          loading: false,
+          error: '没有可用的音频'
+        }));
+        return;
+      }
+
+      // 选择第一个音频开始练习
+      setState(prev => ({
+        ...prev,
+        audioList: audioList,
+        loading: false,
+        audioId: audioList[0].id,
+        currentSegment: 1,
+        answers: [],
+        error: null
+      }));
+      
+      setShowExercise(true);
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : '加载音频列表失败',
+        loading: false,
+        audioList: []
+      }));
+    }
+  };
+
   // 加载当前练习
   useEffect(() => {
     const loadExercise = async () => {
-      if (!state.audioId) {
-        console.log('没有选中的音频ID，跳过加载练习')
-        return
+      if (!state.audioId || !showExercise) {
+        return;
       }
       
       console.log('开始加载练习:', {
         audioId: state.audioId,
         segment: state.currentSegment,
         difficulty: state.difficulty
-      })
+      });
       
-      setState(prev => ({ ...prev, loading: true, error: null }))
+      setState(prev => ({ ...prev, loading: true, error: null }));
       
       try {
         const response = await ApiService.getFillBlanksExercise(
@@ -178,10 +188,7 @@ const App = () => {
           state.difficulty
         );
         
-        console.log('获取到练习响应:', response);
-        
         if (!response || !response.data) {
-          console.error('练习响应格式错误');
           setState(prev => ({
             ...prev,
             error: '练习响应格式错误',
@@ -192,11 +199,8 @@ const App = () => {
         }
 
         const exerciseData = response.data;
-        console.log('处理后的练习数据:', exerciseData);
 
-        // 验证练习数据的完整性
         if (!exerciseData.fill_blanks_exercise_id || !exerciseData.blanked_text || !Array.isArray(exerciseData.blanks)) {
-          console.error('练习数据格式不完整:', exerciseData);
           setState(prev => ({
             ...prev,
             error: '练习数据格式不完整',
@@ -216,10 +220,7 @@ const App = () => {
 
         // 如果设置了自动播放且有音频路径，自动播放音频
         if (settings.autoPlayAudio && exerciseData.segment_audio_path) {
-          console.log('准备播放音频:', exerciseData.segment_audio_path);
-          // 构建完整的音频URL
           const audioUrl = `${window.location.origin}${apiConfig.baseURL}${exerciseData.segment_audio_path}`;
-          console.log('完整的音频URL:', audioUrl);
           const audio = new Audio(audioUrl);
           audio.play().catch(error => {
             console.error('音频播放失败:', error);
@@ -230,17 +231,16 @@ const App = () => {
           });
         }
       } catch (error) {
-        console.error('加载练习失败:', error)
         setState(prev => ({
           ...prev,
           error: '加载练习失败',
           loading: false
-        }))
+        }));
       }
-    }
+    };
     
-    loadExercise()
-  }, [state.audioId, state.currentSegment, state.difficulty, settings.autoPlayAudio])
+    loadExercise();
+  }, [state.audioId, state.currentSegment, state.difficulty, showExercise, settings.autoPlayAudio]);
   
   const handleKeyPress = async (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
     if (!state.currentExercise) return
@@ -300,83 +300,94 @@ const App = () => {
     saveSettings(newSettings)
   }
 
-  if (state.loading) {
-    return (
-      <LoadingOverlay
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        加载中...
-      </LoadingOverlay>
-    )
-  }
-
   return (
-    <Container>
-      <Settings settings={settings} onSettingsChange={handleSettingsChange} />
-      
-      {state.error && (
-        <ErrorMessage>{state.error}</ErrorMessage>
-      )}
-      
-      {state.currentExercise && (
-        <SentenceContainer>
-          {state.currentExercise.blanked_text.split('[___]').map((part, index) => (
-            <React.Fragment key={index}>
-              {part}
-              {index < state.currentExercise!.blanks.length && (
-                <Input
-                  ref={el => {
-                    inputRefs.current[index] = el
+    <AnimatePresence mode="wait">
+      {!showExercise ? (
+        <WelcomePage onStart={handleStart} />
+      ) : (
+        <ExerciseContainer
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Settings
+            settings={settings}
+            onSettingsChange={handleSettingsChange}
+          />
+          {state.loading && (
+            <LoadingOverlay
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              加载中...
+            </LoadingOverlay>
+          )}
+          {state.error && (
+            <ErrorMessage>{state.error}</ErrorMessage>
+          )}
+          {state.currentExercise && (
+            <>
+              <SentenceContainer>
+                {state.currentExercise.blanked_text.split('[___]').map((part, index) => (
+                  <React.Fragment key={index}>
+                    {part}
+                    {index < state.currentExercise!.blanks.length && (
+                      <Input
+                        ref={el => {
+                          inputRefs.current[index] = el
+                        }}
+                        value={state.answers[index] || ''}
+                        onChange={e => {
+                          const newAnswers = [...state.answers]
+                          newAnswers[index] = e.target.value
+                          setState(prev => ({
+                            ...prev,
+                            answers: newAnswers
+                          }))
+                        }}
+                        onKeyDown={e => handleKeyPress(e, index)}
+                        autoFocus={index === 0}
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
+                
+                <AudioButton
+                  onClick={() => {
+                    if (!state.currentExercise?.segment_audio_path) return;
+                    const audioUrl = `${window.location.origin}${apiConfig.baseURL}${state.currentExercise.segment_audio_path}`;
+                    const audio = new Audio(audioUrl);
+                    audio.play().catch(error => {
+                      setState(prev => ({
+                        ...prev,
+                        error: '音频播放失败'
+                      }));
+                    });
                   }}
-                  value={state.answers[index] || ''}
-                  onChange={e => {
-                    const newAnswers = [...state.answers]
-                    newAnswers[index] = e.target.value
-                    setState(prev => ({
-                      ...prev,
-                      answers: newAnswers
-                    }))
-                  }}
-                  onKeyDown={e => handleKeyPress(e, index)}
-                  autoFocus={index === 0}
-                />
-              )}
-            </React.Fragment>
-          ))}
-          
-          <AudioButton
-            onClick={() => {
-              if (!state.currentExercise?.segment_audio_path) return;
-              const audioUrl = `${window.location.origin}${apiConfig.baseURL}${state.currentExercise.segment_audio_path}`;
-              const audio = new Audio(audioUrl);
-              audio.play().catch(error => {
-                setState(prev => ({
-                  ...prev,
-                  error: '音频播放失败'
-                }));
-              });
-            }}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            🔊
-          </AudioButton>
-        </SentenceContainer>
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  🔊
+                </AudioButton>
+              </SentenceContainer>
+            </>
+          )}
+          <AnimatePresence>
+            {state.showSuccess && (
+              <SuccessOverlay
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                🎉
+              </SuccessOverlay>
+            )}
+          </AnimatePresence>
+        </ExerciseContainer>
       )}
-      
-      <AnimatePresence>
-        {state.showSuccess && (
-          <SuccessOverlay
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            ✨ 正确！ ✨
-          </SuccessOverlay>
-        )}
-      </AnimatePresence>
-    </Container>
+    </AnimatePresence>
   )
 }
 
