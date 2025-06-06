@@ -220,7 +220,7 @@ const App = () => {
 
         // 如果设置了自动播放且有音频路径，自动播放音频
         if (settings.autoPlayAudio && exerciseData.segment_audio_path) {
-          const audioUrl = `${window.location.origin}${apiConfig.baseURL}${exerciseData.segment_audio_path}`;
+          const audioUrl = `${window.location.origin}${apiConfig.audioFilesBaseURL}${exerciseData.segment_audio_path}`;
           const audio = new Audio(audioUrl);
           audio.play().catch(error => {
             console.error('音频播放失败:', error);
@@ -357,7 +357,7 @@ const App = () => {
                 <AudioButton
                   onClick={() => {
                     if (!state.currentExercise?.segment_audio_path) return;
-                    const audioUrl = `${window.location.origin}${apiConfig.baseURL}${state.currentExercise.segment_audio_path}`;
+                    const audioUrl = `${window.location.origin}${apiConfig.audioFilesBaseURL}${state.currentExercise.segment_audio_path}`;
                     const audio = new Audio(audioUrl);
                     audio.play().catch(error => {
                       setState(prev => ({

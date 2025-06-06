@@ -2,9 +2,11 @@
 
 // 从环境变量获取API基础URL，如果没有则使用默认值
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const AUDIO_FILES_BASE_URL = import.meta.env.VITE_AUDIO_FILES_BASE_URL || API_BASE_URL;
 
 export const apiConfig = {
   baseURL: API_BASE_URL,
+  audioFilesBaseURL: AUDIO_FILES_BASE_URL,
   endpoints: {
     // 音频上传与转写
     upload: '/upload',
