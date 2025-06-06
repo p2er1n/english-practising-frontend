@@ -306,6 +306,51 @@ const App = () => {
     saveSettings(newSettings)
   }
 
+  // 添加辅助函数用于分割文本
+  const splitTextIntoTokens = (text: string): string[] => {
+    // 先按照空格分割
+    const words = text.split(' ');
+    const tokens: string[] = [];
+    
+    // 处理每个单词，分离标点符号
+    words.forEach(word => {
+      // 查找单词中的标点符号
+      const matches = word.match(/([^.,!?]+)|([.,!?])/g);
+      if (matches) {
+        matches.forEach(match => tokens.push(match));
+      }
+    });
+    
+    return tokens;
+  }
+
+  // 根据位置信息生成带有挖空的文本
+  const generateBlankedText = (text: string, blankPositions: number[]): { parts: string[], blanks: number[] } => {
+    const tokens = splitTextIntoTokens(text);
+    const parts: string[] = [];
+    const blanks: number[] = [];
+    let currentText = '';
+    
+    tokens.forEach((token, index) => {
+      if (blankPositions.includes(index)) {
+        if (currentText) {
+          parts.push(currentText.trim());
+          currentText = '';
+        }
+        blanks.push(parts.length);
+        parts.push('_____');
+      } else {
+        currentText += token + ' ';
+      }
+    });
+    
+    if (currentText) {
+      parts.push(currentText.trim());
+    }
+    
+    return { parts, blanks };
+  }
+
   return (
     <AnimatePresence mode="wait">
       {!showExercise ? (
@@ -336,29 +381,35 @@ const App = () => {
           {state.currentExercise && (
             <>
               <SentenceContainer>
-                {state.currentExercise.blanked_text.split('[___]').map((part, index) => (
-                  <React.Fragment key={index}>
-                    {part}
-                    {index < state.currentExercise!.blanks.length && (
-                      <Input
-                        ref={el => {
-                          inputRefs.current[index] = el
-                        }}
-                        value={state.answers[index] || ''}
-                        onChange={e => {
-                          const newAnswers = [...state.answers]
-                          newAnswers[index] = e.target.value
-                          setState(prev => ({
-                            ...prev,
-                            answers: newAnswers
-                          }))
-                        }}
-                        onKeyDown={e => handleKeyPress(e, index)}
-                        autoFocus={index === 0}
-                      />
-                    )}
-                  </React.Fragment>
-                ))}
+                {(() => {
+                  const blankPositions = state.currentExercise.blanks.map(b => b.position);
+                  const { parts, blanks } = generateBlankedText(state.currentExercise.blanked_text, blankPositions);
+                  
+                  return parts.map((part, index) => (
+                    <React.Fragment key={index}>
+                      {blanks.includes(index) ? (
+                        <Input
+                          ref={el => {
+                            inputRefs.current[blanks.indexOf(index)] = el
+                          }}
+                          value={state.answers[blanks.indexOf(index)] || ''}
+                          onChange={e => {
+                            const newAnswers = [...state.answers];
+                            newAnswers[blanks.indexOf(index)] = e.target.value;
+                            setState(prev => ({
+                              ...prev,
+                              answers: newAnswers
+                            }));
+                          }}
+                          onKeyDown={e => handleKeyPress(e, blanks.indexOf(index))}
+                          autoFocus={blanks.indexOf(index) === 0}
+                        />
+                      ) : (
+                        <span>{part}</span>
+                      )}
+                    </React.Fragment>
+                  ));
+                })()}
                 
                 <AudioButton
                   onClick={() => {
