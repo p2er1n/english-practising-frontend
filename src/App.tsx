@@ -136,7 +136,7 @@ const App = () => {
     currentExercise: null,
     loading: false,
     error: null
-  })
+  });
   
   const [settings, setSettings] = useState<SettingsType>(() => loadSettings())
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -144,7 +144,91 @@ const App = () => {
   // 添加错误状态数组
   const [inputErrors, setInputErrors] = useState<boolean[]>([]);
   
-  // 点击开始练习后加载音频列表
+  // 添加练习历史记录状态
+  const [exerciseHistory, setExerciseHistory] = useState<Array<{
+    audioId: string;
+    segment: number;
+    timestamp: number;
+  }>>(() => {
+    const saved = localStorage.getItem('exercise-history');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // 保存练习历史到本地存储
+  const saveExerciseHistory = (history: typeof exerciseHistory) => {
+    // 只保留最近7天的记录
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const recentHistory = history.filter(item => item.timestamp > oneWeekAgo);
+    localStorage.setItem('exercise-history', JSON.stringify(recentHistory));
+    setExerciseHistory(recentHistory);
+  };
+
+  // 计算题目权重的函数
+  const calculateExerciseWeight = (audioId: string, segment: number) => {
+    const now = Date.now();
+    const recentAttempts = exerciseHistory.filter(
+      item => item.audioId === audioId && item.segment === segment
+    );
+
+    if (recentAttempts.length === 0) {
+      return 1; // 从未做过的题目权重最高
+    }
+
+    const mostRecent = Math.max(...recentAttempts.map(item => item.timestamp));
+    const hoursSinceLastAttempt = (now - mostRecent) / (1000 * 60 * 60);
+    
+    // 根据最近练习时间计算权重
+    // 12小时内：权重较低
+    // 12-24小时：权重适中
+    // 24小时以上：权重较高
+    if (hoursSinceLastAttempt < 12) {
+      return 0.2;
+    } else if (hoursSinceLastAttempt < 24) {
+      return 0.5;
+    } else {
+      return 0.8;
+    }
+  };
+
+  // 随机选择音频和片段
+  const selectRandomExercise = (audioList: any[]) => {
+    if (!audioList.length) return null;
+    
+    // 随机选择一个音频
+    const randomAudioIndex = Math.floor(Math.random() * audioList.length);
+    const selectedAudio = audioList[randomAudioIndex];
+    
+    // 随机选择一个片段（假设每个音频有5个片段）
+    const randomSegment = Math.floor(Math.random() * 5) + 1;
+    
+    return {
+      audioId: selectedAudio.id,
+      segment: randomSegment
+    };
+  };
+
+  // 修改 goToNextSegment 函数
+  const goToNextSegment = () => {
+    const nextExercise = selectRandomExercise(state.audioList);
+    if (nextExercise) {
+      // 记录当前练习到历史
+      const newHistory = [...exerciseHistory, {
+        audioId: state.audioId,
+        segment: state.currentSegment,
+        timestamp: Date.now()
+      }];
+      saveExerciseHistory(newHistory);
+
+      // 设置下一个练习
+      setState(prev => ({
+        ...prev,
+        audioId: nextExercise.audioId,
+        currentSegment: nextExercise.segment
+      }));
+    }
+  };
+
+  // 修改 handleStart 函数
   const handleStart = async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     try {
@@ -172,13 +256,15 @@ const App = () => {
         return;
       }
 
-      // 选择第一个音频开始练习
+      // 随机选择第一个练习
+      const firstExercise = selectRandomExercise(audioList);
+      
       setState(prev => ({
         ...prev,
         audioList: audioList,
         loading: false,
-        audioId: audioList[0].id,
-        currentSegment: 1,
+        audioId: firstExercise?.audioId || audioList[0].id,
+        currentSegment: firstExercise?.segment || 1,
         answers: [],
         error: null
       }));
@@ -367,13 +453,6 @@ const App = () => {
       }));
     }
   };
-
-  const goToNextSegment = () => {
-    setState(prev => ({
-      ...prev,
-      currentSegment: prev.currentSegment + 1
-    }))
-  }
 
   const handleSettingsChange = (newSettings: SettingsType) => {
     setSettings(newSettings);
