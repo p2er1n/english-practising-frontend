@@ -195,84 +195,85 @@ const App = () => {
   };
 
   // 加载当前练习
-  useEffect(() => {
-    const loadExercise = async () => {
-      if (!state.audioId || !showExercise) {
+  const loadExercise = async () => {
+    if (!state.audioId || !showExercise) {
+      return;
+    }
+    
+    setState(prev => ({ ...prev, loading: true, error: null }));
+    
+    try {
+      const response = await ApiService.getFillBlanksExercise(
+        state.audioId,
+        state.currentSegment,
+        state.difficulty
+      );
+      
+      if (!response || !response.data) {
+        setState(prev => ({
+          ...prev,
+          error: '练习响应格式错误',
+          loading: false,
+          currentExercise: null
+        }));
         return;
       }
-      
-      setState(prev => ({ ...prev, loading: true, error: null }));
-      
-      try {
-        const response = await ApiService.getFillBlanksExercise(
-          state.audioId,
-          state.currentSegment,
-          state.difficulty
-        );
-        
-        if (!response || !response.data) {
-          setState(prev => ({
-            ...prev,
-            error: '练习响应格式错误',
-            loading: false,
-            currentExercise: null
-          }));
-          return;
-        }
 
-        const exerciseData = response.data;
+      const exerciseData = response.data;
 
-        if (!exerciseData.fill_blanks_exercise_id || !exerciseData.blanked_text || !Array.isArray(exerciseData.blanks)) {
-          setState(prev => ({
-            ...prev,
-            error: '练习数据格式不完整',
-            loading: false,
-            currentExercise: null
-          }));
-          return;
-        }
-
+      if (!exerciseData.fill_blanks_exercise_id || !exerciseData.blanked_text || !Array.isArray(exerciseData.blanks)) {
         setState(prev => ({
           ...prev,
-          currentExercise: exerciseData,
-          answers: Array(exerciseData.blanks.length).fill(''),
+          error: '练习数据格式不完整',
           loading: false,
-          error: null
+          currentExercise: null
         }));
-
-        // 如果设置了自动播放且有音频路径，自动播放音频
-        if (settings.autoPlayAudio && exerciseData.segment_audio_path) {
-          console.log('音频路径:', exerciseData.segment_audio_path);
-          console.log('API基础URL:', apiConfig.audioFilesBaseURL);
-          const audioUrl = `${apiConfig.audioFilesBaseURL}/${exerciseData.segment_audio_path}`;
-          console.log('完整音频URL:', audioUrl);
-          
-          // 检查音频文件类型
-          const fileExtension = exerciseData.segment_audio_path.split('.').pop()?.toLowerCase();
-          console.log('音频文件类型:', fileExtension);
-          
-          const audio = new Audio(audioUrl);
-          audio.onerror = (e) => {
-            console.error('音频加载错误详情:', e);
-          };
-          
-          audio.play().catch(error => {
-            console.error('音频播放失败:', error);
-            setState(prev => ({
-              ...prev,
-              error: `音频播放失败: ${error.message}`
-            }));
-          });
-        }
-      } catch (error) {
-        setState(prev => ({
-          ...prev,
-          error: '加载练习失败',
-          loading: false
-        }));
+        return;
       }
-    };
-    
+
+      setState(prev => ({
+        ...prev,
+        currentExercise: exerciseData,
+        answers: Array(exerciseData.blanks.length).fill(''),
+        loading: false,
+        error: null
+      }));
+
+      // 如果设置了自动播放且有音频路径，自动播放音频
+      if (settings.autoPlayAudio && exerciseData.segment_audio_path) {
+        console.log('音频路径:', exerciseData.segment_audio_path);
+        console.log('API基础URL:', apiConfig.audioFilesBaseURL);
+        const audioUrl = `${apiConfig.audioFilesBaseURL}/${exerciseData.segment_audio_path}`;
+        console.log('完整音频URL:', audioUrl);
+        
+        // 检查音频文件类型
+        const fileExtension = exerciseData.segment_audio_path.split('.').pop()?.toLowerCase();
+        console.log('音频文件类型:', fileExtension);
+        
+        const audio = new Audio(audioUrl);
+        audio.onerror = (e) => {
+          console.error('音频加载错误详情:', e);
+        };
+        
+        audio.play().catch(error => {
+          console.error('音频播放失败:', error);
+          setState(prev => ({
+            ...prev,
+            error: `音频播放失败: ${error.message}`
+          }));
+        });
+      }
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: '加载练习失败',
+        loading: false
+      }));
+    }
+  };
+
+  // 更新useEffect依赖
+  useEffect(() => {
     loadExercise();
   }, [state.audioId, state.currentSegment, state.difficulty, showExercise, settings.autoPlayAudio]);
   
@@ -333,7 +334,8 @@ const App = () => {
       
       setState(prev => ({ ...prev, loading: false }));
 
-      if (response && response.correct_count === response.total_blanks) {
+      if ('correct_count' in response && 'total_blanks' in response && 
+          response.correct_count === response.total_blanks) {
         // 答案全部正确
         setInputErrors(state.answers.map(() => false));
         setState(prev => ({ ...prev, showSuccess: true }));
@@ -341,10 +343,12 @@ const App = () => {
           setState(prev => ({ ...prev, showSuccess: false }));
           goToNextSegment();
         }, 1500);
-      } else if (response) {
+      } else if ('results' in response) {
         // 设置错误状态
         const newErrors = state.answers.map((_, index) => {
-          const result = response.results.find(r => r.position === state.currentExercise!.blanks[index].position);
+          const result = response.results.find((r: { position: number }) => 
+            r.position === state.currentExercise!.blanks[index].position
+          );
           return result ? !result.is_correct : false;
         });
         setInputErrors(newErrors);
@@ -372,8 +376,8 @@ const App = () => {
   }
 
   const handleSettingsChange = (newSettings: SettingsType) => {
-    setSettings(newSettings)
-    saveSettings(newSettings)
+    setSettings(newSettings);
+    saveSettings(newSettings);
   }
 
   // 添加辅助函数用于分割文本

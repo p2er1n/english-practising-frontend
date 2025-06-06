@@ -72,13 +72,6 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
     });
   };
 
-  const handlePlayCountChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onSettingsChange({
-      ...settings,
-      defaultPlayCount: parseInt(e.target.value),
-    });
-  };
-
   return (
     <SettingsContainer>
       <SettingsButton onClick={() => setIsOpen(!isOpen)}>⚙️</SettingsButton>
@@ -91,17 +84,6 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
           >
             <option value="true">是</option>
             <option value="false">否</option>
-          </Select>
-        </SettingItem>
-        <SettingItem>
-          <Label>默认播放次数</Label>
-          <Select 
-            value={settings.defaultPlayCount.toString()} 
-            onChange={handlePlayCountChange}
-          >
-            <option value="1">1 次</option>
-            <option value="2">2 次</option>
-            <option value="3">3 次</option>
           </Select>
         </SettingItem>
       </SettingsPanel>

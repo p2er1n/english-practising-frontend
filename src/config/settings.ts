@@ -1,11 +1,9 @@
 export interface Settings {
   autoPlayAudio: boolean;
-  defaultPlayCount: number;
 }
 
 export const defaultSettings: Settings = {
   autoPlayAudio: true,
-  defaultPlayCount: 1,
 };
 
 export const saveSettings = (settings: Settings) => {
