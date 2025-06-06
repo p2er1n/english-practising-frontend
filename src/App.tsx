@@ -173,12 +173,6 @@ const App = () => {
         return;
       }
       
-      console.log('开始加载练习:', {
-        audioId: state.audioId,
-        segment: state.currentSegment,
-        difficulty: state.difficulty
-      });
-      
       setState(prev => ({ ...prev, loading: true, error: null }));
       
       try {
@@ -220,13 +214,25 @@ const App = () => {
 
         // 如果设置了自动播放且有音频路径，自动播放音频
         if (settings.autoPlayAudio && exerciseData.segment_audio_path) {
-          const audioUrl = `${window.location.origin}${apiConfig.audioFilesBaseURL}${exerciseData.segment_audio_path}`;
+          console.log('音频路径:', exerciseData.segment_audio_path);
+          console.log('API基础URL:', apiConfig.audioFilesBaseURL);
+          const audioUrl = `${apiConfig.audioFilesBaseURL}/${exerciseData.segment_audio_path}`;
+          console.log('完整音频URL:', audioUrl);
+          
+          // 检查音频文件类型
+          const fileExtension = exerciseData.segment_audio_path.split('.').pop()?.toLowerCase();
+          console.log('音频文件类型:', fileExtension);
+          
           const audio = new Audio(audioUrl);
+          audio.onerror = (e) => {
+            console.error('音频加载错误详情:', e);
+          };
+          
           audio.play().catch(error => {
             console.error('音频播放失败:', error);
             setState(prev => ({
               ...prev,
-              error: '音频播放失败'
+              error: `音频播放失败: ${error.message}`
             }));
           });
         }
@@ -357,12 +363,18 @@ const App = () => {
                 <AudioButton
                   onClick={() => {
                     if (!state.currentExercise?.segment_audio_path) return;
-                    const audioUrl = `${window.location.origin}${apiConfig.audioFilesBaseURL}${state.currentExercise.segment_audio_path}`;
+                    console.log('点击播放音频路径:', state.currentExercise.segment_audio_path);
+                    const audioUrl = `${apiConfig.audioFilesBaseURL}/${state.currentExercise.segment_audio_path}`;
+                    console.log('点击播放完整URL:', audioUrl);
                     const audio = new Audio(audioUrl);
+                    audio.onerror = (e) => {
+                      console.error('音频加载错误详情:', e);
+                    };
                     audio.play().catch(error => {
+                      console.error('音频播放失败:', error);
                       setState(prev => ({
                         ...prev,
-                        error: '音频播放失败'
+                        error: `音频播放失败: ${error.message}`
                       }));
                     });
                   }}
