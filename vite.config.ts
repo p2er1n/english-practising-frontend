@@ -1,5 +1,7 @@
+/// <reference types="node" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { createProxyMiddleware } from 'http-proxy-middleware'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -8,18 +10,18 @@ export default defineConfig({
     proxy: {
       // 将所有API请求代理到后端服务器
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-        // 配置代理以正确处理音频文件
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
             console.log('proxy error', err);
           });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+          
+          proxy.on('proxyReq', (_, req) => {
             console.log('Sending Request:', req.method, req.url);
           });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
+          
+          proxy.on('proxyRes', (proxyRes, req) => {
             console.log('Received Response:', proxyRes.statusCode, req.url);
           });
         }
