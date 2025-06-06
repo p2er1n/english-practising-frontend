@@ -42,17 +42,18 @@ const AudioButton = styled(motion.button)`
   }
 `
 
-const Input = styled.input`
+const Input = styled(motion.input)<{ isError?: boolean }>`
   border: none;
-  border-bottom: 2px solid #ccc;
+  border-bottom: 2px solid ${props => props.isError ? '#ff4d4f' : '#ccc'};
   font-size: 24px;
   padding: 4px 8px;
   width: 120px;
   margin: 0 4px;
   outline: none;
+  transition: border-bottom-color 0.3s;
   
   &:focus {
-    border-bottom-color: #2196f3;
+    border-bottom-color: ${props => props.isError ? '#ff4d4f' : '#2196f3'};
   }
 `
 
@@ -112,6 +113,16 @@ interface FillBlanksResult {
   total_blanks: number;
 }
 
+// 添加摇晃动画的变体
+const shakeAnimation = {
+  shake: {
+    x: [0, -10, 10, -10, 10, 0],
+    transition: {
+      duration: 0.5
+    }
+  }
+};
+
 const App = () => {
   const [showExercise, setShowExercise] = useState(false);
   const [state, setState] = useState<ExerciseState>({
@@ -129,6 +140,9 @@ const App = () => {
   
   const [settings, setSettings] = useState<SettingsType>(() => loadSettings())
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  
+  // 添加错误状态数组
+  const [inputErrors, setInputErrors] = useState<boolean[]>([]);
   
   // 点击开始练习后加载音频列表
   const handleStart = async () => {
@@ -290,7 +304,9 @@ const App = () => {
     if (!state.currentExercise) return;
     
     // 检查是否所有空都已填写
-    if (state.answers.some(answer => !answer.trim())) {
+    const emptyAnswers = state.answers.map(answer => !answer.trim());
+    if (emptyAnswers.some(isEmpty => isEmpty)) {
+      setInputErrors(emptyAnswers);
       setState(prev => ({
         ...prev,
         error: '请填写所有的空'
@@ -312,10 +328,6 @@ const App = () => {
       );
       
       console.log('完整的API响应:', apiResponse);
-      console.log('API响应类型:', typeof apiResponse);
-      console.log('API响应的data字段:', apiResponse?.data);
-      
-      // 如果apiResponse本身就是数据，直接使用
       const response = (typeof apiResponse.data !== 'undefined') ? apiResponse.data : apiResponse;
       console.log('最终使用的响应数据:', response);
       
@@ -323,24 +335,23 @@ const App = () => {
 
       if (response && response.correct_count === response.total_blanks) {
         // 答案全部正确
+        setInputErrors(state.answers.map(() => false));
         setState(prev => ({ ...prev, showSuccess: true }));
         setTimeout(() => {
           setState(prev => ({ ...prev, showSuccess: false }));
           goToNextSegment();
         }, 1500);
       } else if (response) {
-        // 显示具体的错误信息
-        const incorrectAnswers = response.results.filter(result => !result.is_correct);
-        if (incorrectAnswers.length > 0) {
-          setState(prev => ({
-            ...prev,
-            error: `答案不正确，请重试`
-          }));
-        }
-      } else {
+        // 设置错误状态
+        const newErrors = state.answers.map((_, index) => {
+          const result = response.results.find(r => r.position === state.currentExercise!.blanks[index].position);
+          return result ? !result.is_correct : false;
+        });
+        setInputErrors(newErrors);
+        
         setState(prev => ({
           ...prev,
-          error: '服务器响应格式错误'
+          error: `有答案不正确，请重试`
         }));
       }
     } catch (error) {
@@ -460,8 +471,20 @@ const App = () => {
                               answers: newAnswers
                             }));
                           }}
+                          onFocus={() => {
+                            // 清除当前输入框的错误状态
+                            const blankIndex = blanks.indexOf(index);
+                            if (inputErrors[blankIndex]) {
+                              const newErrors = [...inputErrors];
+                              newErrors[blankIndex] = false;
+                              setInputErrors(newErrors);
+                            }
+                          }}
                           onKeyDown={e => handleKeyPress(e, blanks.indexOf(index))}
                           autoFocus={blanks.indexOf(index) === 0}
+                          isError={inputErrors[blanks.indexOf(index)]}
+                          animate={inputErrors[blanks.indexOf(index)] ? "shake" : ""}
+                          variants={shakeAnimation}
                         />
                       ) : (
                         <span>{part}</span>
