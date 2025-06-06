@@ -87,30 +87,6 @@ const ErrorMessage = styled.div`
   text-align: center;
 `
 
-const AudioList = styled.div`
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  max-height: 80vh;
-  overflow-y: auto;
-`
-
-const AudioItem = styled.div<{ isActive: boolean }>`
-  padding: 10px;
-  margin: 5px 0;
-  cursor: pointer;
-  border-radius: 4px;
-  background: ${props => props.isActive ? '#e3f2fd' : 'transparent'};
-  
-  &:hover {
-    background: #f5f5f5;
-  }
-`
-
 const App = () => {
   const [state, setState] = useState<ExerciseState>({
     audioId: '',
@@ -132,12 +108,9 @@ const App = () => {
   useEffect(() => {
     const fetchAudioList = async () => {
       try {
-        console.log('开始获取音频列表...');
         const response = await ApiService.getAudioList();
-        console.log('获取到的原始响应:', response);
         
         if (!response || !response.data) {
-          console.error('API响应格式错误');
           setState(prev => ({
             ...prev,
             audioList: [],
@@ -148,7 +121,6 @@ const App = () => {
         }
 
         const audioList = response.data;
-        console.log('处理后的音频列表:', audioList);
         
         if (audioList.length === 0) {
           setState(prev => ({
@@ -160,7 +132,7 @@ const App = () => {
           return;
         }
 
-        // 设置音频列表并自动选择第一个音频
+        // 自动选择第一个音频开始练习
         setState(prev => ({
           ...prev,
           audioList: audioList,
@@ -171,7 +143,6 @@ const App = () => {
           error: null
         }));
       } catch (error) {
-        console.error('获取音频列表失败:', error);
         setState(prev => ({
           ...prev,
           error: error instanceof Error ? error.message : '加载音频列表失败',
@@ -329,15 +300,6 @@ const App = () => {
     saveSettings(newSettings)
   }
 
-  const selectAudio = (audioId: string) => {
-    setState(prev => ({
-      ...prev,
-      audioId,
-      currentSegment: 1,
-      answers: []
-    }))
-  }
-
   if (state.loading) {
     return (
       <LoadingOverlay
@@ -352,19 +314,6 @@ const App = () => {
   return (
     <Container>
       <Settings settings={settings} onSettingsChange={handleSettingsChange} />
-      
-      <AudioList>
-        <h3>音频列表</h3>
-        {state.audioList.map(audio => (
-          <AudioItem
-            key={audio.id}
-            isActive={audio.id === state.audioId}
-            onClick={() => selectAudio(audio.id)}
-          >
-            {audio.filename}
-          </AudioItem>
-        ))}
-      </AudioList>
       
       {state.error && (
         <ErrorMessage>{state.error}</ErrorMessage>
@@ -395,26 +344,24 @@ const App = () => {
               )}
             </React.Fragment>
           ))}
-          {state.currentExercise.segment_audio_path && (
-            <AudioButton
-              onClick={() => {
-                if (!state.currentExercise?.segment_audio_path) return;
-                const audioUrl = `${window.location.origin}${apiConfig.baseURL}${state.currentExercise.segment_audio_path}`;
-                const audio = new Audio(audioUrl);
-                audio.play().catch(error => {
-                  console.error('音频播放失败:', error);
-                  setState(prev => ({
-                    ...prev,
-                    error: '音频播放失败'
-                  }));
-                });
-              }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              🔊
-            </AudioButton>
-          )}
+          
+          <AudioButton
+            onClick={() => {
+              if (!state.currentExercise?.segment_audio_path) return;
+              const audioUrl = `${window.location.origin}${apiConfig.baseURL}${state.currentExercise.segment_audio_path}`;
+              const audio = new Audio(audioUrl);
+              audio.play().catch(error => {
+                setState(prev => ({
+                  ...prev,
+                  error: '音频播放失败'
+                }));
+              });
+            }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            🔊
+          </AudioButton>
         </SentenceContainer>
       )}
       
