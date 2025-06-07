@@ -70,6 +70,7 @@ const SuccessOverlay = styled(motion.div)`
   align-items: center;
   justify-content: center;
   font-size: 48px;
+  backdrop-filter: blur(4px);
 `
 
 const LoadingOverlay = styled(motion.div)`
@@ -83,6 +84,7 @@ const LoadingOverlay = styled(motion.div)`
   align-items: center;
   justify-content: center;
   font-size: 24px;
+  backdrop-filter: blur(4px);
 `
 
 const ErrorMessage = styled.div`
@@ -99,7 +101,8 @@ const ExerciseContainer = styled(motion.div)`
   align-items: center;
   justify-content: center;
   background: white;
-`;
+  opacity: 0;
+`
 
 // 添加类型定义
 interface FillBlanksResult {
@@ -348,10 +351,10 @@ const App = () => {
       // 如果设置了自动播放且有音频路径，自动播放音频
       if (settings.autoPlayAudio && exerciseData.segment_audio_path) {
         const audioPath = exerciseData.segment_audio_path;
-        // 短暂延迟后播放音频，确保状态已更新
+        // 延长延迟时间，等待动效完成后再播放
         setTimeout(() => {
           playAudio(audioPath);
-        }, 100);
+        }, 1500);
       }
     } catch (error) {
       setState(prev => ({
@@ -638,10 +641,14 @@ const App = () => {
         <WelcomePage onStart={handleStart} />
       ) : (
         <ExerciseContainer
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.5 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ 
+            duration: 0.8,
+            delay: 0.6,
+            ease: [0.4, 0, 0.2, 1]
+          }}
         >
           <Settings
             settings={settings}
@@ -652,6 +659,7 @@ const App = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, ease: "easeInOut" }}
             >
               加载中...
             </LoadingOverlay>
@@ -727,9 +735,10 @@ const App = () => {
           <AnimatePresence>
             {state.showSuccess && (
               <SuccessOverlay
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.1 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
               >
                 🎉
               </SuccessOverlay>

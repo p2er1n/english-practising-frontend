@@ -1,93 +1,130 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import styled from '@emotion/styled';
 
-const WelcomeContainer = styled.div`
+const WelcomeContainer = styled(motion.div)`
   width: 100vw;
   height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #f6f8fd 0%, #ffffff 100%);
+  background: #ffffff;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    .start-hint {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+const ContentWrapper = styled(motion.div)`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+  position: relative;
 `;
 
 const Title = styled(motion.h1)`
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 2rem;
+  font-size: 3rem;
+  font-weight: 900;
+  color: #333333;
+  margin-bottom: 1.5rem;
   text-align: center;
-  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   letter-spacing: -0.5px;
 `;
 
 const Subtitle = styled(motion.p)`
-  font-size: 1.25rem;
-  color: #666;
-  margin-bottom: 3rem;
+  font-size: 1.1rem;
+  color: #666666;
+  margin-bottom: 2rem;
   text-align: center;
   max-width: 600px;
   line-height: 1.6;
+  letter-spacing: 0.3px;
 `;
 
-const StartButton = styled(motion.button)`
-  padding: 1rem 3rem;
-  font-size: 1.25rem;
-  border: none;
-  border-radius: 100px;
-  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
-  color: white;
-  cursor: pointer;
-  font-weight: 600;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.2s ease;
-  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.2);
-
-  &::before {
+const StartHint = styled(motion.div)`
+  font-size: 1rem;
+  color: #999999;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  &::before, &::after {
     content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
-    transform: translateX(-100%);
-    transition: transform 0.5s ease;
-  }
-
-  &:hover::before {
-    transform: translateX(100%);
-  }
-
-  &:active {
-    transform: scale(0.98);
+    width: 15px;
+    height: 1px;
+    background: #e0e0e0;
   }
 `;
 
-const BackgroundCircle = styled(motion.div)`
+const TransitionOverlay = styled(motion.div)`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
+
+const TransitionCircle = styled(motion.div)`
   position: absolute;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+  background: #ffffff;
 `;
 
-const Circle1 = styled(BackgroundCircle)`
-  width: 400px;
-  height: 400px;
-  top: -100px;
-  right: -100px;
+const RippleEffect = styled(motion.div)`
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  opacity: 0.2;
 `;
 
-const Circle2 = styled(BackgroundCircle)`
-  width: 300px;
-  height: 300px;
-  bottom: -50px;
-  left: -50px;
+const BackgroundDecoration = styled(motion.div)`
+  position: absolute;
+  background: #f8f9fa;
+  z-index: 1;
+`;
+
+const TopRightDecoration = styled(BackgroundDecoration)`
+  width: 45vw;
+  height: 45vh;
+  top: 0;
+  right: 0;
+  border-bottom-left-radius: 100px;
+`;
+
+const BottomLeftDecoration = styled(BackgroundDecoration)`
+  width: 35vw;
+  height: 35vh;
+  bottom: 0;
+  left: 0;
+  border-top-right-radius: 100px;
+`;
+
+const Dot = styled(motion.div)<{ size: number; top: number; left: number; delay: number }>`
+  position: absolute;
+  width: ${props => props.size}px;
+  height: ${props => props.size}px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  top: ${props => props.top}%;
+  left: ${props => props.left}%;
+  z-index: 1;
 `;
 
 interface WelcomePageProps {
@@ -95,56 +132,125 @@ interface WelcomePageProps {
 }
 
 const WelcomePage: React.FC<WelcomePageProps> = ({ onStart }) => {
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [clickPosition, setClickPosition] = useState({ x: 0, y: 0 });
+  
+  const dots = [
+    { size: 10, top: 20, left: 20, delay: 0.2 },
+    { size: 15, top: 60, left: 85, delay: 0.3 },
+    { size: 12, top: 80, left: 30, delay: 0.4 },
+    { size: 8, top: 40, left: 70, delay: 0.5 },
+  ];
+
+  const handleStart = (e: React.MouseEvent) => {
+    const { clientX, clientY } = e;
+    setClickPosition({ x: clientX, y: clientY });
+    setIsTransitioning(true);
+    setTimeout(onStart, 1000);
+  };
+
+  const maxRadius = Math.sqrt(
+    Math.pow(window.innerWidth, 2) + Math.pow(window.innerHeight, 2)
+  );
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
-    >
-      <WelcomeContainer>
-        <Circle1
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
+    <AnimatePresence>
+      <WelcomeContainer
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        onClick={handleStart}
+      >
+        <TopRightDecoration
+          initial={{ opacity: 0, x: 100 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 1, delay: 0.2 }}
         />
-        <Circle2
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
+        <BottomLeftDecoration
+          initial={{ opacity: 0, x: -100 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 1, delay: 0.2 }}
         />
         
-        <Title
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-        >
-          英语听力练习
-        </Title>
+        {dots.map((dot, index) => (
+          <Dot
+            key={index}
+            size={dot.size}
+            top={dot.top}
+            left={dot.left}
+            delay={dot.delay}
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: dot.delay }}
+          />
+        ))}
         
-        <Subtitle
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
+        <ContentWrapper
+          whileHover={{ scale: 1.02 }}
+          transition={{ duration: 0.3 }}
         >
-          通过互动练习提升您的英语听力水平
-        </Subtitle>
-        
-        <StartButton
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.7 }}
-          whileHover={{ 
-            scale: 1.03,
-            boxShadow: "0 6px 30px rgba(37, 99, 235, 0.3)"
-          }}
-          whileTap={{ scale: 0.98 }}
-          onClick={onStart}
-        >
-          开始练习
-        </StartButton>
+          <Title
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+          >
+            英语听力练习
+          </Title>
+          
+          <Subtitle
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+          >
+            专注练习 · 突破听力
+          </Subtitle>
+
+          <StartHint className="start-hint">
+            点击任意位置开始
+          </StartHint>
+        </ContentWrapper>
+
+        {isTransitioning && (
+          <TransitionOverlay
+            initial={false}
+            animate={{ opacity: 1 }}
+          >
+            <TransitionCircle
+              initial={{ width: 0, height: 0 }}
+              animate={{ 
+                width: maxRadius * 2,
+                height: maxRadius * 2,
+              }}
+              transition={{
+                duration: 1.2,
+                ease: [0.4, 0, 0.2, 1]
+              }}
+              style={{
+                left: clickPosition.x - maxRadius,
+                top: clickPosition.y - maxRadius,
+              }}
+            />
+            <RippleEffect
+              initial={{ width: 0, height: 0, opacity: 0.5 }}
+              animate={{ 
+                width: 100,
+                height: 100,
+                opacity: 0,
+              }}
+              transition={{
+                duration: 0.4,
+                ease: "easeOut"
+              }}
+              style={{
+                left: clickPosition.x - 50,
+                top: clickPosition.y - 50,
+              }}
+            />
+          </TransitionOverlay>
+        )}
       </WelcomeContainer>
-    </motion.div>
+    </AnimatePresence>
   );
 };
 
