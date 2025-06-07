@@ -197,9 +197,11 @@ const App = () => {
     // 随机选择一个音频
     const randomAudioIndex = Math.floor(Math.random() * audioList.length);
     const selectedAudio = audioList[randomAudioIndex];
+        // 使用音频的实际片段数量
+    const totalSegments = selectedAudio.total_segments || 5; // 如果没有total_segments，默认为5
     
-    // 随机选择一个片段（假设每个音频有5个片段）
-    const randomSegment = Math.floor(Math.random() * 5) + 1;
+    // 随机选择一个片段
+    const randomSegment = Math.floor(Math.random() * totalSegments) + 1;
     
     return {
       audioId: selectedAudio.id,
