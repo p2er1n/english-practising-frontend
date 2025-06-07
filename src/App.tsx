@@ -389,6 +389,37 @@ const App = () => {
     }
   };
 
+  // 修改辅助函数用于分割文本
+  const generateBlankedText = (text: string): { parts: string[], blanks: number[] } => {
+    const parts: string[] = [];
+    const blanks: number[] = [];
+    let lastIndex = 0;
+    
+    // 查找所有下划线位置
+    const underscoreRegex = /_+/g;
+    let match;
+    
+    while ((match = underscoreRegex.exec(text)) !== null) {
+      // 添加下划线前的文本
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+      
+      // 记录空的位置
+      blanks.push(parts.length);
+      parts.push('_____');
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // 添加最后一部分文本
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+    
+    return { parts, blanks };
+  }
+
   const checkAnswer = async () => {
     if (!state.currentExercise) return;
     
@@ -406,13 +437,16 @@ const App = () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
+      // 使用原始blanks数组中的position值
+      const userAnswers = state.answers.map((answer, index) => ({
+        position: state.currentExercise!.blanks[index].position,
+        submitted_word: answer.trim()
+      }));
+
       const apiResponse = await ApiService.checkFillBlanksAnswers(
         state.currentExercise.fill_blanks_exercise_id,
         {
-          user_answers: state.answers.map((answer, index) => ({
-            position: state.currentExercise!.blanks[index].position,
-            submitted_word: answer.trim()
-          }))
+          user_answers: userAnswers
         }
       );
       
@@ -432,9 +466,10 @@ const App = () => {
           goToNextSegment();
         }, 1500);
       } else if ('results' in response) {
-        // 设置错误状态
+        // 设置错误状态 - 使用原始blanks数组的顺序处理结果
         const newErrors = state.answers.map((_, index) => {
-          const result = response.results.find((r: { position: number }) => 
+          // 根据position找到对应的结果
+          const result = response.results.find(r => 
             r.position === state.currentExercise!.blanks[index].position
           );
           return result ? !result.is_correct : false;
@@ -463,47 +498,23 @@ const App = () => {
 
   // 添加辅助函数用于分割文本
   const splitTextIntoTokens = (text: string): string[] => {
+    // 定义所有需要分割的标点符号
+    const punctuationRegex = /([^\w\s]|')/g;
+    
     // 先按照空格分割
     const words = text.split(' ');
     const tokens: string[] = [];
     
-    // 处理每个单词，分离标点符号
+    // 处理每个单词，分离所有标点符号
     words.forEach(word => {
-      // 查找单词中的标点符号
-      const matches = word.match(/([^.,!?]+)|([.,!?])/g);
-      if (matches) {
-        matches.forEach(match => tokens.push(match));
-      }
+      if (!word) return; // 跳过空字符串
+      
+      // 分割单词和标点符号
+      const parts = word.split(punctuationRegex).filter(Boolean);
+      tokens.push(...parts);
     });
     
     return tokens;
-  }
-
-  // 根据位置信息生成带有挖空的文本
-  const generateBlankedText = (text: string, blankPositions: number[]): { parts: string[], blanks: number[] } => {
-    const tokens = splitTextIntoTokens(text);
-    const parts: string[] = [];
-    const blanks: number[] = [];
-    let currentText = '';
-    
-    tokens.forEach((token, index) => {
-      if (blankPositions.includes(index)) {
-        if (currentText) {
-          parts.push(currentText.trim());
-          currentText = '';
-        }
-        blanks.push(parts.length);
-        parts.push('_____');
-      } else {
-        currentText += token + ' ';
-      }
-    });
-    
-    if (currentText) {
-      parts.push(currentText.trim());
-    }
-    
-    return { parts, blanks };
   }
 
   return (
@@ -538,7 +549,7 @@ const App = () => {
               <SentenceContainer>
                 {(() => {
                   const blankPositions = state.currentExercise.blanks.map(b => b.position);
-                  const { parts, blanks } = generateBlankedText(state.currentExercise.blanked_text, blankPositions);
+                  const { parts, blanks } = generateBlankedText(state.currentExercise.blanked_text);
                   
                   return parts.map((part, index) => (
                     <React.Fragment key={index}>
