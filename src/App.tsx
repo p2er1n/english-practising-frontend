@@ -3,6 +3,7 @@ import styled from '@emotion/styled'
 import { motion, AnimatePresence } from 'framer-motion'
 import Settings from './components/Settings'
 import WelcomePage from './components/WelcomePage'
+import ShortcutHints from './components/ShortcutHints'
 import { loadSettings, saveSettings, type Settings as SettingsType } from './config/settings'
 import type { ExerciseState } from './types/exercise'
 import { ApiService } from './services/api.service'
@@ -698,6 +699,7 @@ const App = () => {
                   🔊
                 </AudioButton>
               </SentenceContainer>
+              <ShortcutHints />
             </>
           )}
           <AnimatePresence>
