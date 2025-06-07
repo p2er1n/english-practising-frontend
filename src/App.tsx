@@ -360,12 +360,18 @@ const App = () => {
     }
   };
 
-  // 添加一个effect来处理焦点
+  // 修改effect中的焦点设置逻辑
   useEffect(() => {
     if (state.currentExercise && !state.loading && inputRefs.current[0]) {
       // 使用setTimeout确保在DOM更新后设置焦点
       setTimeout(() => {
-        inputRefs.current[0]?.focus();
+        const input = inputRefs.current[0];
+        if (input) {
+          input.focus();
+          // 将光标移动到内容末尾
+          const length = input.value.length;
+          input.setSelectionRange(length, length);
+        }
       }, 0);
     }
   }, [state.currentExercise, state.loading]);
@@ -441,6 +447,15 @@ const App = () => {
         ...prev,
         error: '请填写所有的空'
       }));
+      // 找到第一个未填写的空，并设置焦点
+      const firstEmptyIndex = emptyAnswers.findIndex(isEmpty => isEmpty);
+      if (firstEmptyIndex !== -1 && inputRefs.current[firstEmptyIndex]) {
+        const input = inputRefs.current[firstEmptyIndex];
+        input.focus();
+        // 将光标移动到内容末尾
+        const length = input.value.length;
+        input.setSelectionRange(length, length);
+      }
       return;
     }
     
@@ -490,6 +505,20 @@ const App = () => {
           ...prev,
           error: `有答案不正确，请重试`
         }));
+
+        // 找到第一个错误的输入框，并设置焦点
+        const firstErrorIndex = newErrors.findIndex(isError => isError);
+        if (firstErrorIndex !== -1 && inputRefs.current[firstErrorIndex]) {
+          setTimeout(() => {
+            const input = inputRefs.current[firstErrorIndex];
+            if (input) {
+              input.focus();
+              // 将光标移动到内容末尾
+              const length = input.value.length;
+              input.setSelectionRange(length, length);
+            }
+          }, 0);
+        }
       }
     } catch (error) {
       console.error('API调用错误:', error);
@@ -639,7 +668,7 @@ const App = () => {
         </ExerciseContainer>
       )}
     </AnimatePresence>
-  )
-}
+  );
+};
 
-export default App
+export default App;
