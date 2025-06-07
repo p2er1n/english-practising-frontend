@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Settings from './components/Settings'
 import WelcomePage from './components/WelcomePage'
 import ShortcutHints from './components/ShortcutHints'
+import SkipButton from './components/SkipButton'
 import { loadSettings, saveSettings, type Settings as SettingsType } from './config/settings'
 import type { ExerciseState } from './types/exercise'
 import { ApiService } from './services/api.service'
@@ -212,6 +213,13 @@ const App = () => {
 
   // 修改 goToNextSegment 函数
   const goToNextSegment = () => {
+    // 停止当前音频播放
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+
     const nextExercise = selectRandomExercise(state.audioList);
     if (nextExercise) {
       // 记录当前练习到历史
@@ -226,7 +234,9 @@ const App = () => {
       setState(prev => ({
         ...prev,
         audioId: nextExercise.audioId,
-        currentSegment: nextExercise.segment
+        currentSegment: nextExercise.segment,
+        answers: [], // 清空答案
+        error: null // 清空错误信息
       }));
     }
   };
@@ -289,6 +299,13 @@ const App = () => {
       return;
     }
     
+    // 确保停止之前的音频播放
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
+    
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
@@ -330,7 +347,11 @@ const App = () => {
 
       // 如果设置了自动播放且有音频路径，自动播放音频
       if (settings.autoPlayAudio && exerciseData.segment_audio_path) {
-        playAudio(exerciseData.segment_audio_path);
+        const audioPath = exerciseData.segment_audio_path;
+        // 短暂延迟后播放音频，确保状态已更新
+        setTimeout(() => {
+          playAudio(audioPath);
+        }, 100);
       }
     } catch (error) {
       setState(prev => ({
@@ -700,6 +721,7 @@ const App = () => {
                 </AudioButton>
               </SentenceContainer>
               <ShortcutHints />
+              <SkipButton onSkip={goToNextSegment} />
             </>
           )}
           <AnimatePresence>
