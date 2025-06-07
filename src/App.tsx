@@ -329,27 +329,7 @@ const App = () => {
 
       // 如果设置了自动播放且有音频路径，自动播放音频
       if (settings.autoPlayAudio && exerciseData.segment_audio_path) {
-        console.log('音频路径:', exerciseData.segment_audio_path);
-        console.log('API基础URL:', apiConfig.audioFilesBaseURL);
-        const audioUrl = `${apiConfig.audioFilesBaseURL}/${exerciseData.segment_audio_path}`;
-        console.log('完整音频URL:', audioUrl);
-        
-        // 检查音频文件类型
-        const fileExtension = exerciseData.segment_audio_path.split('.').pop()?.toLowerCase();
-        console.log('音频文件类型:', fileExtension);
-        
-        const audio = new Audio(audioUrl);
-        audio.onerror = (e) => {
-          console.error('音频加载错误详情:', e);
-        };
-        
-        audio.play().catch(error => {
-          console.error('音频播放失败:', error);
-          setState(prev => ({
-            ...prev,
-            error: `音频播放失败: ${error.message}`
-          }));
-        });
+        playAudio(exerciseData.segment_audio_path);
       }
     } catch (error) {
       setState(prev => ({
@@ -556,6 +536,58 @@ const App = () => {
     return tokens;
   }
 
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // 添加音频播放控制函数
+  const playAudio = (audioPath: string) => {
+    if (isPlaying) return; // 如果正在播放，直接返回
+
+    console.log('点击播放音频路径:', audioPath);
+    const audioUrl = `${apiConfig.audioFilesBaseURL}/${audioPath}`;
+    console.log('点击播放完整URL:', audioUrl);
+
+    // 如果存在之前的音频实例，先清理掉
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    audio.onerror = (e) => {
+      console.error('音频加载错误详情:', e);
+      setIsPlaying(false);
+    };
+
+    audio.onended = () => {
+      setIsPlaying(false);
+      audioRef.current = null;
+    };
+
+    audio.play().then(() => {
+      setIsPlaying(true);
+    }).catch(error => {
+      console.error('音频播放失败:', error);
+      setIsPlaying(false);
+      setState(prev => ({
+        ...prev,
+        error: `音频播放失败: ${error.message}`
+      }));
+    });
+  };
+
+  // 在组件卸载时清理音频
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <AnimatePresence mode="wait">
       {!showExercise ? (
@@ -631,23 +663,15 @@ const App = () => {
                 <AudioButton
                   onClick={() => {
                     if (!state.currentExercise?.segment_audio_path) return;
-                    console.log('点击播放音频路径:', state.currentExercise.segment_audio_path);
-                    const audioUrl = `${apiConfig.audioFilesBaseURL}/${state.currentExercise.segment_audio_path}`;
-                    console.log('点击播放完整URL:', audioUrl);
-                    const audio = new Audio(audioUrl);
-                    audio.onerror = (e) => {
-                      console.error('音频加载错误详情:', e);
-                    };
-                    audio.play().catch(error => {
-                      console.error('音频播放失败:', error);
-                      setState(prev => ({
-                        ...prev,
-                        error: `音频播放失败: ${error.message}`
-                      }));
-                    });
+                    playAudio(state.currentExercise.segment_audio_path);
                   }}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
+                  disabled={isPlaying}
+                  style={{ 
+                    opacity: isPlaying ? 0.5 : 1,
+                    cursor: isPlaying ? 'not-allowed' : 'pointer'
+                  }}
                 >
                   🔊
                 </AudioButton>
