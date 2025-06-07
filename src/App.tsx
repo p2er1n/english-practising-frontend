@@ -360,6 +360,16 @@ const App = () => {
     }
   };
 
+  // 添加一个effect来处理焦点
+  useEffect(() => {
+    if (state.currentExercise && !state.loading && inputRefs.current[0]) {
+      // 使用setTimeout确保在DOM更新后设置焦点
+      setTimeout(() => {
+        inputRefs.current[0]?.focus();
+      }, 0);
+    }
+  }, [state.currentExercise, state.loading]);
+
   // 更新useEffect依赖
   useEffect(() => {
     loadExercise();
