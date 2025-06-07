@@ -207,7 +207,7 @@ const WelcomePage: React.FC<WelcomePageProps> = ({ onStart }) => {
           </Subtitle>
 
           <StartHint className="start-hint">
-            点击任意位置开始
+            点击任意位置开始练习
           </StartHint>
         </ContentWrapper>
 
