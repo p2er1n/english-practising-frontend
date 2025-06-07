@@ -578,6 +578,28 @@ const App = () => {
     });
   };
 
+  // 添加全局快捷键监听
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 检查是否按下了 Ctrl+Space
+      if (e.ctrlKey && e.code === 'Space') {
+        e.preventDefault(); // 阻止默认行为
+        // 如果有当前练习且有音频路径，播放音频
+        if (state.currentExercise?.segment_audio_path) {
+          playAudio(state.currentExercise.segment_audio_path);
+        }
+      }
+    };
+
+    // 添加事件监听
+    window.addEventListener('keydown', handleKeyDown);
+
+    // 清理函数
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [state.currentExercise]); // 依赖于currentExercise，这样可以始终获取到最新的音频路径
+
   // 在组件卸载时清理音频
   useEffect(() => {
     return () => {
